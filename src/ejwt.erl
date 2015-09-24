@@ -10,7 +10,7 @@
 -define(HS384, <<"HS384">>).
 -define(HS512, <<"HS512">>).
 
--export([encode/2, encode/3, decode/1, decode/2]).
+-export([encode/2, encode/3, decode/2]).
 
 -type key() :: iolist() | binary().
 
@@ -44,28 +44,20 @@ get_mac(Key, Data, ?HS384) ->
 get_mac(Key, Data, ?HS512) ->
     crypto:hmac(sha512, Key, Data).
 
--spec decode(JWT :: binary()) -> list() | error.
-
-decode(JWT) ->
-    decode(JWT, undefined).
-
 -spec decode(JWT :: binary(), Key :: key()) -> list() | error.
 
 decode(JWT, Key) ->
     [Header_segment, Data] = binary:split(JWT, <<".">>),
     [Payload_segment, Crypto_segment] = binary:split(Data, <<".">>),
     Payload = jsx:decode(base64url:decode(Payload_segment)),
-    case Key of
-        undefined -> Payload;
-        _ ->
-            Header = jsx:decode(base64url:decode(Header_segment)),
-            Signature = base64url:decode(Crypto_segment),
-            Signing_input = <<Header_segment/binary, ".", Payload_segment/binary>>,
-            Signing = get_mac(Key, Signing_input, proplists:get_value(<<"alg">>, Header)),
-            if
-                Signature == Signing ->
-                    Payload;
-                true ->
-                    error
-            end
+
+    Header = jsx:decode(base64url:decode(Header_segment)),
+    Signature = base64url:decode(Crypto_segment),
+    Signing_input = <<Header_segment/binary, ".", Payload_segment/binary>>,
+    Signing = get_mac(Key, Signing_input, proplists:get_value(<<"alg">>, Header)),
+    if
+        Signature == Signing ->
+            Payload;
+        true ->
+            error
     end.
